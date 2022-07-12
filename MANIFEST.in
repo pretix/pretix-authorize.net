@@ -1,0 +1,5 @@
+recursive-include pretix_authorizenet/static *
+recursive-include pretix_authorizenet/templates *
+recursive-include pretix_authorizenet/locale *
+include LICENSE
+exclude .gitlab-ci.yml

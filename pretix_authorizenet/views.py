@@ -2,6 +2,7 @@ import hashlib
 import hmac
 import json
 import logging
+from decimal import Decimal
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -18,14 +19,19 @@ logger = logging.getLogger(__name__)
 @scopes_disabled()
 def webhook(request, *args, **kwargs):
     data = json.loads(request.body.decode())
-    print(data)
     if data["payload"]["entityName"] != "transaction":
-        return HttpResponse("Not interested.", status_code=200)
+        return HttpResponse("Not interested.", status=200)
 
     try:
         ro = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"])
     except ReferencedAuthorizeNetObject.DoesNotExist:
-        return HttpResponse("Unkown payment.", status_code=404)
+        # Far from perfect, but necessary for refund processing
+        try:
+            ro = ReferencedAuthorizeNetObject.objects.get(
+                order__code=data["payload"]["invoiceNumber"].split("-")[0]
+            )
+        except ReferencedAuthorizeNetObject.DoesNotExist:
+            return HttpResponse("Unkown payment.", status=404)
 
     provider = ro.payment.payment_provider
 
@@ -36,15 +42,18 @@ def webhook(request, *args, **kwargs):
         .upper()
     )
     if received_signature != computed_signature:
-        return HttpResponse("Invalid signature", status_code=403)
+        return HttpResponse("Invalid signature", status=403)
 
     ro.order.log_action("pretix_authorizenet.event", data=data)
 
-    if data["eventType"] in (
-        "net.authorize.payment.refund.created",
-        "net.authorize.payment.void.created",
-    ):
-        ro.payment.create_external_refund(ro.payment.amount)
+    if data["eventType"] == "net.authorize.payment.void.created":
+        ro.payment.create_external_refund(
+            ro.payment.amount, info=json.dumps(data["payload"])
+        )
+    elif data["eventType"] == "net.authorize.payment.refund.created":
+        ro.payment.create_external_refund(
+            Decimal(data["payload"]["authAmount"]), info=json.dumps(data["payload"])
+        )
     elif data[
         "eventType"
     ] == "net.authorize.payment.fraud.declined" and ro.payment.state not in (
@@ -53,10 +62,4 @@ def webhook(request, *args, **kwargs):
     ):
         ro.payment.fail()
 
-    return HttpResponse("OK", status_code=200)
-
-
-# {"notificationId":"c9864a20-1ef6-473c-b43f-828bc8ddb2cc","eventType":"net.authorize.payment.authcapture.created",
-# "eventDate":"2022-07-14T10:54:09.6423514Z","webhookId":"10b37f1d-0e1e-4bc8-92b0-f75e74c27352","payload":
-# {"responseCode":1,"authCode":"EXFG3O","avsResponse":"Y","authAmount":9.60,"merchantReferenceId":"E7QZP-P-1",
-# "invoiceNumber":"E7QZP-P-1","entityName":"transaction","id":"40098176700"}}
+    return HttpResponse("OK", status=200)

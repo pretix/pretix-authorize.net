@@ -267,11 +267,12 @@ class AuthorizeNetMethod(BasePaymentProvider):
                 refund.done()
                 return True
             elif (
-                resp.get("transactionResponse", {})
-                .get("errors", [{}])[0]
-                .get("errorCode")
-                == "54"
-                and not try_void
+                    resp.get("transactionResponse", {})
+                            .get("errors", [{}])[0]
+                            .get("errorCode")
+                    == "54"
+                    and not try_void
+                and refund.amount == refund.payment.amount
             ):
                 return self.execute_refund(refund, try_void=True)
             else:

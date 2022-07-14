@@ -15,7 +15,9 @@ class PluginApp(PluginConfig):
     class PretixPluginMeta:
         name = gettext_lazy("Authorize.Net")
         author = "pretix"
-        description = gettext_lazy("Accept credit card payments globally through your Authorize.Net account.")
+        description = gettext_lazy(
+            "Accept credit card payments globally through your Authorize.Net account."
+        )
         visible = True
         version = __version__
         category = "PAYMENT"

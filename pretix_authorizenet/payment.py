@@ -1,94 +1,107 @@
 import json
 import logging
-from collections import OrderedDict
-
 import requests
+from collections import OrderedDict
 from django import forms
 from django.core.checks import messages
 from django.http import HttpRequest
 from django.template.loader import get_template
 from django.utils.translation import gettext_lazy as _
-
 from pretix.base.forms import SecretKeySettingsField
 from pretix.base.models import Event, OrderPayment, OrderRefund
 from pretix.base.payment import BasePaymentProvider, PaymentException
 from pretix.base.settings import SettingsSandbox
+
 from .models import ReferencedAuthorizeNetObject
 
 logger = logging.getLogger(__name__)
 
 
 class AuthorizeNetSettingsHolder(BasePaymentProvider):
-    identifier = 'authorizenet'
-    verbose_name = _('Authorize.Net')
+    identifier = "authorizenet"
+    verbose_name = _("Authorize.Net")
     is_enabled = False
     is_meta = True
 
     def __init__(self, event: Event):
         super().__init__(event)
-        self.settings = SettingsSandbox('payment', 'authorizenet', event)
+        self.settings = SettingsSandbox("payment", "authorizenet", event)
 
     @property
     def test_mode_message(self):
-        if self.settings.environment == 'sandbox':
+        if self.settings.environment == "sandbox":
             return _(
-                'The Authorize.Net module is running in sandbox mode. You can use a '
+                "The Authorize.Net module is running in sandbox mode. You can use a "
                 '<a href="https://developer.authorize.net/hello_world/testing_guide.html">test card</a> to try out '
-                'payments.'
+                "payments."
             )
         return None
 
     @property
     def settings_form_fields(self):
         fields = [
-            ('environment',
-             forms.ChoiceField(
-                 label=_('Environment'),
-                 initial='production',
-                 choices=(
-                     ('production', 'Production'),
-                     ('sandbox', 'Sandbox'),
-                 ),
-             )),
-            ('login_id',
-             SecretKeySettingsField(
-                 label=_('API Login ID'),
-             )),
-            ('transaction_key',
-             SecretKeySettingsField(
-                 label=_('Transaction Key'),
-             )),
-            ('public_client_key',
-             forms.CharField(
-                 # https://developer.authorize.net/api/reference/features/acceptjs.html#Generating_and_Using_the_Public_Client_Key
-                 label=_('Public Client Key'),
-                 help_text=_('To generate the Client Key, log in to the Merchant Interface as an Administrator and '
-                             'navigate to Account > Settings > Security Settings > General Security Settings > Manage '
-                             'Public Client Key. If the Public Client Key does not yet exist, answer your security '
-                             'question to generate the key.')
-             )),
+            (
+                "environment",
+                forms.ChoiceField(
+                    label=_("Environment"),
+                    initial="production",
+                    choices=(
+                        ("production", "Production"),
+                        ("sandbox", "Sandbox"),
+                    ),
+                ),
+            ),
+            (
+                "login_id",
+                SecretKeySettingsField(
+                    label=_("API Login ID"),
+                ),
+            ),
+            (
+                "transaction_key",
+                SecretKeySettingsField(
+                    label=_("Transaction Key"),
+                ),
+            ),
+            (
+                "public_client_key",
+                forms.CharField(
+                    # https://developer.authorize.net/api/reference/features/acceptjs.html#Generating_and_Using_the_Public_Client_Key
+                    label=_("Public Client Key"),
+                    help_text=_(
+                        "To generate the Client Key, log in to the Merchant Interface as an Administrator and "
+                        "navigate to Account > Settings > Security Settings > General Security Settings > Manage "
+                        "Public Client Key. If the Public Client Key does not yet exist, answer your security "
+                        "question to generate the key."
+                    ),
+                ),
+            ),
         ]
         d = OrderedDict(
-            fields + [
-                ('method_creditcard',
-                 forms.BooleanField(
-                     label=_('Credit card'),
-                     required=True,
-                     initial=True,
-                 )),
-            ] + list(super().settings_form_fields.items())
+            fields
+            + [
+                (
+                    "method_creditcard",
+                    forms.BooleanField(
+                        label=_("Credit card"),
+                        required=True,
+                        initial=True,
+                    ),
+                ),
+            ]
+            + list(super().settings_form_fields.items())
         )
-        d.move_to_end('_enabled', last=False)
+        d.move_to_end("_enabled", last=False)
         return d
 
 
 class AuthorizeNetMethod(BasePaymentProvider):
-    method = ''
+    method = ""
     abort_pending_allowed = False
 
     def __init__(self, event: Event):
         super().__init__(event)
-        self.settings = SettingsSandbox('payment', 'authorizenet', event)
+        self.settings = SettingsSandbox("payment", "authorizenet", event)
 
     @property
     def settings_form_fields(self):
@@ -96,18 +109,19 @@ class AuthorizeNetMethod(BasePaymentProvider):
 
     @property
     def identifier(self):
-        return 'authorizenet_{}'.format(self.method)
+        return "authorizenet_{}".format(self.method)
 
     @property
     def is_enabled(self) -> bool:
-        return self.settings.get('_enabled', as_type=bool) and self.settings.get('method_{}'.format(self.method),
-                                                                                 as_type=bool)
+        return self.settings.get("_enabled", as_type=bool) and self.settings.get(
+            "method_{}".format(self.method), as_type=bool
+        )
 
     @property
     def api_url(self):
-        if self.settings.environment == 'sandbox':
-            return 'https://apitest.authorize.net/xml/v1/request.api'
-        return 'https://api.authorize.net/xml/v1/request.api'
+        if self.settings.environment == "sandbox":
+            return "https://apitest.authorize.net/xml/v1/request.api"
+        return "https://api.authorize.net/xml/v1/request.api"
 
     def payment_refund_supported(self, payment: OrderPayment) -> bool:
         # Sources on the internet suggest that refunds are only possible for 90 days, which we could express through
@@ -122,27 +136,42 @@ class AuthorizeNetMethod(BasePaymentProvider):
         return self.checkout_prepare(request, None)
 
     def checkout_prepare(self, request, cart):
-        if not request.POST.get(f'authorizenet-{self.method}-datavalue'):
-            messages.warning(request, _('You may need to enable JavaScript for Adyen payments.'))
+        if not request.POST.get(f"authorizenet-{self.method}-datavalue"):
+            messages.warning(
+                request, _("You may need to enable JavaScript for Adyen payments.")
+            )
             return False
-        request.session[f'authorizenet_{self.method}_datavalue'] = request.POST.get(
-            f'authorizenet-{self.method}-datavalue')
-        request.session[f'authorizenet_{self.method}_datadescriptor'] = request.POST.get(
-            f'authorizenet-{self.method}-datadescriptor')
+        request.session[f"authorizenet_{self.method}_datavalue"] = request.POST.get(
+            f"authorizenet-{self.method}-datavalue"
+        )
+        request.session[
+            f"authorizenet_{self.method}_datadescriptor"
+        ] = request.POST.get(f"authorizenet-{self.method}-datadescriptor")
         return True
 
     def payment_is_valid_session(self, request: HttpRequest):
-        return request.session.get(f'authorizenet_{self.method}_datavalue') and request.session.get(
-            f'authorizenet_{self.method}_datadescriptor')
+        return request.session.get(
+            f"authorizenet_{self.method}_datavalue"
+        ) and request.session.get(f"authorizenet_{self.method}_datadescriptor")
 
     def payment_form_render(self, request) -> str:
-        template = get_template('pretix_authorizenet/checkout_payment_form.html')
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings, 'method': self.method}
+        template = get_template("pretix_authorizenet/checkout_payment_form.html")
+        ctx = {
+            "request": request,
+            "event": self.event,
+            "settings": self.settings,
+            "method": self.method,
+        }
         return template.render(ctx)
 
     def checkout_confirm_render(self, request) -> str:
-        template = get_template('pretix_authorizenet/checkout_payment_confirm.html')
-        ctx = {'request': request, 'event': self.event, 'settings': self.settings, 'provider': self}
+        template = get_template("pretix_authorizenet/checkout_payment_confirm.html")
+        ctx = {
+            "request": request,
+            "event": self.event,
+            "settings": self.settings,
+            "provider": self,
+        }
         return template.render(ctx)
 
     def payment_can_retry(self, payment):
@@ -153,15 +182,15 @@ class AuthorizeNetMethod(BasePaymentProvider):
             payment_info = json.loads(payment.info)
         else:
             payment_info = None
-        template = get_template('pretix_authorizenet/pending.html')
+        template = get_template("pretix_authorizenet/pending.html")
         ctx = {
-            'request': request,
-            'event': self.event,
-            'settings': self.settings,
-            'provider': self,
-            'order': payment.order,
-            'payment': payment,
-            'payment_info': payment_info,
+            "request": request,
+            "event": self.event,
+            "settings": self.settings,
+            "provider": self,
+            "order": payment.order,
+            "payment": payment,
+            "payment_info": payment_info,
         }
         return template.render(ctx)
 
@@ -170,15 +199,15 @@ class AuthorizeNetMethod(BasePaymentProvider):
             payment_info = json.loads(payment.info)
         else:
             payment_info = None
-        template = get_template('pretix_authorizenet/control.html')
+        template = get_template("pretix_authorizenet/control.html")
         ctx = {
-            'request': request,
-            'event': self.event,
-            'settings': self.settings,
-            'payment_info': payment_info,
-            'payment': payment,
-            'method': self.method,
-            'provider': self,
+            "request": request,
+            "event": self.event,
+            "settings": self.settings,
+            "payment_info": payment_info,
+            "payment": payment,
+            "method": self.method,
+            "provider": self,
         }
         return template.render(ctx)
 
@@ -190,7 +219,9 @@ class AuthorizeNetMethod(BasePaymentProvider):
             if try_void:
                 req = {
                     "transactionType": "voidTransaction",
-                    "refTransId": refund.payment.info_data["transactionResponse"]["transId"],
+                    "refTransId": refund.payment.info_data["transactionResponse"][
+                        "transId"
+                    ],
                 }
             else:
                 req = {
@@ -199,14 +230,18 @@ class AuthorizeNetMethod(BasePaymentProvider):
                     "currencyCode": self.event.currency,
                     "payment": {
                         "creditCard": {
-                            "cardNumber": refund.payment.info_data["transactionResponse"]["accountNumber"][-4:],
-                            "expirationDate": "XXXX"
+                            "cardNumber": refund.payment.info_data[
+                                "transactionResponse"
+                            ]["accountNumber"][-4:],
+                            "expirationDate": "XXXX",
                         }
                     },
-                    "refTransId": refund.payment.info_data["transactionResponse"]["transId"],
+                    "refTransId": refund.payment.info_data["transactionResponse"][
+                        "transId"
+                    ],
                     "order": {
                         "invoiceNumber": refund.full_id[:20],
-                        "description": f"{refund.order.code} / {self.event}"[:255]
+                        "description": f"{refund.order.code} / {self.event}"[:255],
                     },
                 }
             r = requests.post(
@@ -218,12 +253,12 @@ class AuthorizeNetMethod(BasePaymentProvider):
                             "transactionKey": self.settings.transaction_key,
                         },
                         "refId": refund.full_id[:20],
-                        "transactionRequest": req
+                        "transactionRequest": req,
                     }
-                }
+                },
             )
             r.raise_for_status()
-            resp = json.loads(r.content.decode('utf-8-sig'))
+            resp = json.loads(r.content.decode("utf-8-sig"))
 
             refund.info_data = resp
             refund.save(update_fields=["info"])
@@ -231,7 +266,13 @@ class AuthorizeNetMethod(BasePaymentProvider):
                 refund.info_data = resp
                 refund.done()
                 return True
-            elif resp.get("transactionResponse", {}).get("errors", [{}])[0].get("errorCode") == "54" and not try_void:
+            elif (
+                resp.get("transactionResponse", {})
+                .get("errors", [{}])[0]
+                .get("errorCode")
+                == "54"
+                and not try_void
+            ):
                 return self.execute_refund(refund, try_void=True)
             else:
                 refund.info_data = resp
@@ -243,17 +284,31 @@ class AuthorizeNetMethod(BasePaymentProvider):
                         "local_id": refund.local_id,
                         "provider": refund.provider,
                         "message": ", ".join(
-                            [f"{msg['code']}: {msg['text']}" for msg in resp["messages"]["message"]] +
-                            [f"{msg['errorCode']}: {msg['errorText']}" for msg in
-                             resp.get("transactionResponse", {}).get("errors", [])]
-                        )
+                            [
+                                f"{msg['code']}: {msg['text']}"
+                                for msg in resp["messages"]["message"]
+                            ]
+                            + [
+                                f"{msg['errorCode']}: {msg['errorText']}"
+                                for msg in resp.get("transactionResponse", {}).get(
+                                    "errors", []
+                                )
+                            ]
+                        ),
                     },
                 )
                 raise PaymentException(
                     ", ".join(
-                        [f"{msg['code']}: {msg['text']}" for msg in resp["messages"]["message"]] +
-                        [f"{msg['errorCode']}: {msg['errorText']}" for msg in
-                         resp.get("transactionResponse", {}).get("errors", [])]
+                        [
+                            f"{msg['code']}: {msg['text']}"
+                            for msg in resp["messages"]["message"]
+                        ]
+                        + [
+                            f"{msg['errorCode']}: {msg['errorText']}"
+                            for msg in resp.get("transactionResponse", {}).get(
+                                "errors", []
+                            )
+                        ]
                     )
                 )
         except requests.HTTPError as e:
@@ -294,27 +349,36 @@ class AuthorizeNetMethod(BasePaymentProvider):
                             "currencyCode": self.event.currency,
                             "payment": {
                                 "opaqueData": {
-                                    "dataDescriptor": request.session[f'authorizenet_{self.method}_datadescriptor'],
-                                    "dataValue": request.session[f'authorizenet_{self.method}_datavalue'],
+                                    "dataDescriptor": request.session[
+                                        f"authorizenet_{self.method}_datadescriptor"
+                                    ],
+                                    "dataValue": request.session[
+                                        f"authorizenet_{self.method}_datavalue"
+                                    ],
                                 }
                             },
                             "order": {
                                 "invoiceNumber": payment.full_id[:20],
-                                "description": f"{payment.order.code} / {self.event}"[:255]
+                                "description": f"{payment.order.code} / {self.event}"[
+                                    :255
+                                ],
                             },
                             "poNumber": payment.order.code[:25],
-                        }
+                        },
                     }
-                }
+                },
             )
             r.raise_for_status()
-            resp = json.loads(r.content.decode('utf-8-sig'))
+            resp = json.loads(r.content.decode("utf-8-sig"))
 
             payment.info_data = resp
             payment.save(update_fields=["info"])
             if resp["messages"]["resultCode"] == "Ok":
-                ReferencedAuthorizeNetObject.objects.create(order=payment.order, payment=payment,
-                                                            reference=resp["transactionResponse"]["transId"])
+                ReferencedAuthorizeNetObject.objects.create(
+                    order=payment.order,
+                    payment=payment,
+                    reference=resp["transactionResponse"]["transId"],
+                )
                 payment.info_data = resp
                 payment.confirm()
                 return
@@ -328,17 +392,31 @@ class AuthorizeNetMethod(BasePaymentProvider):
                         "local_id": payment.local_id,
                         "provider": payment.provider,
                         "message": ", ".join(
-                            [f"{msg['code']}: {msg['text']}" for msg in resp["messages"]["message"]] +
-                            [f"{msg['errorCode']}: {msg['errorText']}" for msg in
-                             resp.get("transactionResponse", {}).get("errors", [])]
-                        )
+                            [
+                                f"{msg['code']}: {msg['text']}"
+                                for msg in resp["messages"]["message"]
+                            ]
+                            + [
+                                f"{msg['errorCode']}: {msg['errorText']}"
+                                for msg in resp.get("transactionResponse", {}).get(
+                                    "errors", []
+                                )
+                            ]
+                        ),
                     },
                 )
                 raise PaymentException(
                     ", ".join(
-                        [f"{msg['code']}: {msg['text']}" for msg in resp["messages"]["message"]] +
-                        [f"{msg['errorCode']}: {msg['errorText']}" for msg in
-                         resp.get("transactionResponse", {}).get("errors", [])]
+                        [
+                            f"{msg['code']}: {msg['text']}"
+                            for msg in resp["messages"]["message"]
+                        ]
+                        + [
+                            f"{msg['errorCode']}: {msg['errorText']}"
+                            for msg in resp.get("transactionResponse", {}).get(
+                                "errors", []
+                            )
+                        ]
                     )
                 )
         except requests.HTTPError as e:
@@ -366,18 +444,25 @@ class AuthorizeNetMethod(BasePaymentProvider):
         if not obj.info:
             return
         d = json.loads(obj.info)
-        if 'transactionResponse' in d:
-            d['transactionResponse'] = {
-                k: '█' for k in d['transactionResponse'].keys()
-                if k not in ('accountType', 'messages', 'transId', 'networkTransId',)
+        if "transactionResponse" in d:
+            d["transactionResponse"] = {
+                k: "█"
+                for k in d["transactionResponse"].keys()
+                if k
+                not in (
+                    "accountType",
+                    "messages",
+                    "transId",
+                    "networkTransId",
+                )
             }
 
-        d['_shredded'] = True
+        d["_shredded"] = True
         obj.info = json.dumps(d)
-        obj.save(update_fields=['info'])
+        obj.save(update_fields=["info"])
 
 
 class AuthorizeNetCC(AuthorizeNetMethod):
-    method = 'creditcard'
-    verbose_name = _('Credit card via Authorize.Net')
-    public_name = _('Credit card')
+    method = "creditcard"
+    verbose_name = _("Credit card via Authorize.Net")
+    public_name = _("Credit card")

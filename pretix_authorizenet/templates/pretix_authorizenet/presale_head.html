@@ -1,0 +1,15 @@
+{% load static %}
+{% load compress %}
+{% load i18n %}
+
+{% compress js %}
+    <script type="text/javascript" src="{% static "pretix_authorizenet/pretix-authorizenet.js" %}"></script>
+{% endcompress %}
+{% if environment == "sandbox" %}
+    <script type="text/plain" id="authorizenet_sdkurl">https://jstest.authorize.net/v3/AcceptUI.js</script>
+{% else %}
+    <script type="text/plain" id="authorizenet_sdkurl">https://js.authorize.net/v3/AcceptUI.js</script>
+{% endif %}
+
+<script type="text/plain" id="authorizenet_login_id">{{ login_id }}</script>
+<script type="text/plain" id="authorizenet_client_key">{{ public_client_key }}</script>

@@ -1,10 +1,12 @@
+import json
 import logging
 from django.dispatch import receiver
 from django.http import HttpRequest, HttpResponse
 from django.template.loader import get_template
 from django.urls import resolve
+from django.utils.translation import gettext_lazy as _
 from pretix.base.middleware import _merge_csp, _parse_csp, _render_csp
-from pretix.base.signals import register_payment_providers
+from pretix.base.signals import logentry_display, register_payment_providers
 from pretix.presale.signals import html_head, process_response
 
 logger = logging.getLogger(__name__)
@@ -72,3 +74,14 @@ def signal_process_response(
         if h:
             response["Content-Security-Policy"] = _render_csp(h)
     return response
+
+
+@receiver(signal=logentry_display, dispatch_uid="authorizenet_logentry_display")
+def pretixcontrol_logentry_display(sender, logentry, **kwargs):
+    if logentry.action_type != "pretix_authorizenet.event":
+        return
+
+    data = json.loads(logentry.data)
+    event_type = data.get("eventType", "").replace("net.authorize.", "")
+
+    return _("Authorize.Net reported an event: {}").format(event_type)

@@ -1,16 +1,21 @@
 import json
 import logging
+import re
 import requests
 from collections import OrderedDict
 from django import forms
+from django.conf import settings
 from django.core.checks import messages
+from django.core.exceptions import ValidationError
 from django.http import HttpRequest
 from django.template.loader import get_template
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from pretix.base.forms import SecretKeySettingsField
 from pretix.base.models import Event, OrderPayment, OrderRefund
 from pretix.base.payment import BasePaymentProvider, PaymentException
 from pretix.base.settings import SettingsSandbox
+from urllib.parse import urljoin
 
 from .models import ReferencedAuthorizeNetObject
 
@@ -64,6 +69,17 @@ class AuthorizeNetSettingsHolder(BasePaymentProvider):
                 ),
             ),
             (
+                "signature_key",
+                SecretKeySettingsField(
+                    label=_("Signature Key"),
+                    help_text=_(
+                        "To generate the Signature key, log in to the Merchant Interface as an Administrator and "
+                        "navigate to Account > Settings > Security Settings > General Security Settings > API "
+                        "Credentials and Keys."
+                    ),
+                ),
+            ),
+            (
                 "public_client_key",
                 forms.CharField(
                     # https://developer.authorize.net/api/reference/features/acceptjs.html#Generating_and_Using_the_Public_Client_Key
@@ -71,8 +87,7 @@ class AuthorizeNetSettingsHolder(BasePaymentProvider):
                     help_text=_(
                         "To generate the Client Key, log in to the Merchant Interface as an Administrator and "
                         "navigate to Account > Settings > Security Settings > General Security Settings > Manage "
-                        "Public Client Key. If the Public Client Key does not yet exist, answer your security "
-                        "question to generate the key."
+                        "Public Client Key."
                     ),
                 ),
             ),
@@ -93,6 +108,61 @@ class AuthorizeNetSettingsHolder(BasePaymentProvider):
         )
         d.move_to_end("_enabled", last=False)
         return d
+
+    def settings_form_clean(self, cleaned_data):
+        login_id = (
+            self.settings.login_id
+            if cleaned_data.get("payment_authorizenet_login_id") == "*****"
+            else cleaned_data.get("payment_authorizenet_login_id")
+        )
+        transaction_key = (
+            self.settings.transaction_key
+            if cleaned_data.get("payment_authorizenet_transaction_key") == "*****"
+            else cleaned_data.get("payment_authorizenet_transaction_key")
+        )
+        url = urljoin(settings.SITE_URL, reverse("plugins:pretix_authorizenet:webhook"))
+        apiurl = (
+            "https://apitest.authorize.net/rest/v1/webhooks"
+            if self.settings.environment == "sandbox"
+            else "https://api.authorize.net/rest/v1/webhooks"
+        )
+        try:
+            r = requests.get(
+                apiurl,
+                auth=(login_id, transaction_key),
+            )
+            r.raise_for_status()
+            if not any(w["url"] == url for w in r.json()):
+                r = requests.post(
+                    apiurl,
+                    json={
+                        "name": re.sub(
+                            "[^a-z0-9A-Z_]", "_", settings.PRETIX_INSTANCE_NAME
+                        ),
+                        "url": url,
+                        "eventTypes": [
+                            "net.authorize.payment.authorization.created",
+                            "net.authorize.payment.authcapture.created",
+                            "net.authorize.payment.capture.created",
+                            "net.authorize.payment.fraud.approved",
+                            "net.authorize.payment.fraud.declined",
+                            "net.authorize.payment.fraud.held",
+                            "net.authorize.payment.priorAuthCapture.created",
+                            "net.authorize.payment.refund.created",
+                            "net.authorize.payment.void.created",
+                        ],
+                        "status": "active",
+                    },
+                    auth=(login_id, transaction_key),
+                )
+                r.raise_for_status()
+        except requests.RequestException as e:
+            raise ValidationError(
+                _(
+                    "Could not contact Authorize.Net to verify credentials and auto-configure webhooks. "
+                    "Received error: {error}"
+                ).format(error=str(e))
+            )
 
 
 class AuthorizeNetMethod(BasePaymentProvider):
@@ -267,11 +337,11 @@ class AuthorizeNetMethod(BasePaymentProvider):
                 refund.done()
                 return True
             elif (
-                    resp.get("transactionResponse", {})
-                            .get("errors", [{}])[0]
-                            .get("errorCode")
-                    == "54"
-                    and not try_void
+                resp.get("transactionResponse", {})
+                .get("errors", [{}])[0]
+                .get("errorCode")
+                == "54"
+                and not try_void
                 and refund.amount == refund.payment.amount
             ):
                 return self.execute_refund(refund, try_void=True)

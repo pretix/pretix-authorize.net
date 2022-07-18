@@ -86,7 +86,7 @@ var pretixauthorizenet = {
                 );
             }
         } else {
-            waitingDialog.show(gettext("Processing payment …"));
+            window.waitingDialog.show(gettext("Processing payment …"));
             document.getElementById("authorizenet-creditcard-datadescriptor").value = response.opaqueData.dataDescriptor;
             document.getElementById("authorizenet-creditcard-datavalue").value = response.opaqueData.dataValue;
             pretixauthorizenet.continue_button.closest("form").submit();

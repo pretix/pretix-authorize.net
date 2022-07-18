@@ -6,24 +6,25 @@ var pretixauthorizenet = {
     continue_button: null,
 
     load: function () {
-        if (pretixauthorizenet.authorizenet === null) {
-            pretixauthorizenet.continue_button = $('.checkout-button-row').closest("form").find(".checkout-button-row .btn-primary");
-            var $cont = $('<div id="authorizenet-button-container">');
-            $cont.hide()
-            $cont.append(
-                $('<button>')
-                    .addClass('AcceptUI')
-                    .addClass('btn btn-primary btn-lg btn-block')
-                    .text(gettext('Pay'))
-                    .attr('data-billingAddressOptions', '{"show":false, "required":false}')
-                    .attr('data-apiLoginID', $("#authorizenet_login_id").text())
-                    .attr('data-clientKey', $("#authorizenet_client_key").text())
-                    .attr('data-acceptUIFormBtnTxt', gettext('Pay'))
-                    .attr('data-acceptUIFormHeaderTxt', gettext('Card Information'))
-                    .attr('data-responseHandler', 'pretixAuthorizeNetResponse')
-            )
-            pretixauthorizenet.continue_button.closest('div').append($cont);
+        if (pretixauthorizenet.authorizenet !== null) {
+            return
         }
+        pretixauthorizenet.continue_button = $('.checkout-button-row').closest("form").find(".checkout-button-row .btn-primary");
+        var $cont = $('<div id="authorizenet-button-container">');
+        $cont.hide()
+        $cont.append(
+            $('<button>')
+                .addClass('AcceptUI')
+                .addClass('btn btn-primary btn-lg btn-block')
+                .text(gettext('Pay'))
+                .attr('data-billingAddressOptions', '{"show":false, "required":false}')
+                .attr('data-apiLoginID', $("#authorizenet_login_id").text())
+                .attr('data-clientKey', $("#authorizenet_client_key").text())
+                .attr('data-acceptUIFormBtnTxt', gettext('Pay'))
+                .attr('data-acceptUIFormHeaderTxt', gettext('Card Information'))
+                .attr('data-responseHandler', 'pretixAuthorizeNetResponse')
+        )
+        pretixauthorizenet.continue_button.closest('div').append($cont);
 
         pretixauthorizenet.continue_button.prop("disabled", true);
 
@@ -103,6 +104,7 @@ $(function () {
         }
         pretixauthorizenet.ready();
     }
+
     checkReady();
 });
 

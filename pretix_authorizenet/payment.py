@@ -10,6 +10,7 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest
 from django.template.loader import get_template
 from django.urls import reverse
+from django.utils.safestring import mark_safe
 from django.utils.translation import gettext_lazy as _
 from pretix.base.forms import SecretKeySettingsField
 from pretix.base.models import Event, OrderPayment, OrderRefund
@@ -31,16 +32,6 @@ class AuthorizeNetSettingsHolder(BasePaymentProvider):
     def __init__(self, event: Event):
         super().__init__(event)
         self.settings = SettingsSandbox("payment", "authorizenet", event)
-
-    @property
-    def test_mode_message(self):
-        if self.settings.environment == "sandbox":
-            return _(
-                "The Authorize.Net module is running in sandbox mode. You can use a "
-                '<a href="https://developer.authorize.net/hello_world/testing_guide.html">test card</a> to try out '
-                "payments."
-            )
-        return None
 
     @property
     def settings_form_fields(self):
@@ -174,6 +165,17 @@ class AuthorizeNetMethod(BasePaymentProvider):
         self.settings = SettingsSandbox("payment", "authorizenet", event)
 
     @property
+    def test_mode_message(self):
+        if self.settings.environment == "sandbox":
+            return mark_safe(
+                _(
+                    "The Authorize.Net module is running in sandbox mode. You can use a "
+                    '<a href="https://developer.authorize.net/hello_world/testing_guide.html">test card</a> to try out '
+                    "payments."
+                )
+            )
+
+    @property
     def settings_form_fields(self):
         return {}
 
@@ -208,7 +210,8 @@ class AuthorizeNetMethod(BasePaymentProvider):
     def checkout_prepare(self, request, cart):
         if not request.POST.get(f"authorizenet-{self.method}-datavalue"):
             messages.warning(
-                request, _("You may need to enable JavaScript for payments with Authorize.Net.")
+                request,
+                _("You may need to enable JavaScript for payments with Authorize.Net."),
             )
             return False
         request.session[f"authorizenet_{self.method}_datavalue"] = request.POST.get(

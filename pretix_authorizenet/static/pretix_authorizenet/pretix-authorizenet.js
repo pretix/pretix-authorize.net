@@ -104,6 +104,6 @@ $(function () {
     })();
 });
 
-function pretixAuthorizeNetResponse(response) {
+window.pretixAuthorizeNetResponse = function (response) {
     pretixauthorizenet.handleResponse(response)
 }

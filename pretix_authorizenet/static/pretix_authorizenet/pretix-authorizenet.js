@@ -53,7 +53,7 @@ var pretixauthorizenet = {
 
     ready: function () {
         $("input[name=payment][value^='authorizenet']").change(function () {
-            pretixauthorizenet.renderButton($(this).val());
+            pretixauthorizenet.renderButton(this.value);
         });
 
         $("input[name=payment]").not("[value^='authorizenet']").change(function () {

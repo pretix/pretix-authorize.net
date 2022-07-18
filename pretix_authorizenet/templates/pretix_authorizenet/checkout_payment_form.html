@@ -1,0 +1,18 @@
+{% load i18n %}
+
+<div class="form-horizontal authorizenet-container">
+    <p>
+        {% blocktrans trimmed %}
+            Click on the button below to continue with your payment.
+        {% endblocktrans %}
+    </p>
+
+    <p class="help-block">
+        {% blocktrans trimmed %}
+            Your payment will be processed by Authorize.Net. Your data will be transmitted directly to Authorize.Net
+            and never touches our servers.
+        {% endblocktrans %}
+    </p>
+    <input type="hidden" name="authorizenet-{{ method }}-datavalue" value="" id="authorizenet-{{ method }}-datavalue" />
+    <input type="hidden" name="authorizenet-{{ method }}-datadescriptor" value="" id="authorizenet-{{ method }}-datadescriptor" />
+</div>

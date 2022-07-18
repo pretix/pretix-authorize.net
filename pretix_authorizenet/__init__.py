@@ -15,11 +15,14 @@ class PluginApp(PluginConfig):
     class PretixPluginMeta:
         name = gettext_lazy("Authorize.Net")
         author = "pretix"
-        description = gettext_lazy("Accept credit card payments globally through your Authorize.Net account.")
+        description = gettext_lazy(
+            "Accept credit card payments globally through your Authorize.Net account."
+        )
         visible = True
         version = __version__
         category = "PAYMENT"
         compatibility = "pretix>=4.10.0"
+        picture = "pretix_authorizenet/logo.png"
 
     def ready(self):
         from . import signals  # NOQA

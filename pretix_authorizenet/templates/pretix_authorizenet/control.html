@@ -1,0 +1,30 @@
+{% load i18n %}
+
+{% if payment_info %}
+    <dl class="dl-horizontal">
+        {% if "transId" in payment_info.transactionResponse %}
+            <dt>{% trans "Transaction ID" %}</dt>
+            <dd>{{ payment_info.transactionResponse.transId }}</dd>
+        {% endif %}
+        {% if "networkTransId" in payment_info.transactionResponse %}
+            <dt>{% trans "Network Transaction ID" %}</dt>
+            <dd>{{ payment_info.transactionResponse.networkTransId }}</dd>
+        {% endif %}
+        {% if "accountType" in payment_info.transactionResponse %}
+            <dt>{% trans "Card" %}</dt>
+            <dd>{{ payment_info.transactionResponse.accountType }} {{ paymentInfo.transactionResponse.accountNumber }}</dd>
+        {% endif %}
+        {% for message in payment_info.messages.message %}
+            <dt>{% trans "Message" %}</dt>
+            <dd>[{{ message.code }}] {{ message.text }}</dd>
+        {% endfor %}
+        {% for message in payment_info.transactionResponse.messages %}
+            <dt>{% trans "Message" %}</dt>
+            <dd>[{{ message.code }}] {{ message.description }}</dd>
+        {% endfor %}
+        {% for message in payment_info.transactionResponse.errors %}
+            <dt>{% trans "Message" %}</dt>
+            <dd>[{{ message.errorCode }}] {{ message.errorText }}</dd>
+        {% endfor %}
+    </dl>
+{% endif %}

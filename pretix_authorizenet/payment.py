@@ -208,7 +208,7 @@ class AuthorizeNetMethod(BasePaymentProvider):
     def checkout_prepare(self, request, cart):
         if not request.POST.get(f"authorizenet-{self.method}-datavalue"):
             messages.warning(
-                request, _("You may need to enable JavaScript for Adyen payments.")
+                request, _("You may need to enable JavaScript for payments with Authorize.Net.")
             )
             return False
         request.session[f"authorizenet_{self.method}_datavalue"] = request.POST.get(

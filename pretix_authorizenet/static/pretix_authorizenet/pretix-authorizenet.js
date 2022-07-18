@@ -97,11 +97,13 @@ var pretixauthorizenet = {
 $(function () {
     pretixauthorizenet.load();
 
-    (async () => {
-        while (!pretixauthorizenet.authorizenet)
-            await new Promise(resolve => setTimeout(resolve, 1000));
+    function checkReady() {
+        if (!pretixauthorizenet.authorizenet) {
+            return window.setTimeout(checkReady, 500);
+        }
         pretixauthorizenet.ready();
-    })();
+    }
+    checkReady();
 });
 
 window.pretixAuthorizeNetResponse = function (response) {

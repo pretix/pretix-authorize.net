@@ -96,6 +96,10 @@ var pretixauthorizenet = {
 };
 
 $(function () {
+    if (!document.getElementById("authorizenet-creditcard-datadescriptor")) {
+        // No Authorize.Net on this page
+        return;
+    }
     pretixauthorizenet.load();
 
     function checkReady() {

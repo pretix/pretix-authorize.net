@@ -5,7 +5,7 @@ import requests
 from collections import OrderedDict
 from django import forms
 from django.conf import settings
-from django.core.checks import messages
+from django.contrib import messages
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest
 from django.template.loader import get_template

@@ -335,7 +335,7 @@ class AuthorizeNetMethod(BasePaymentProvider):
 
             refund.info_data = resp
             refund.save(update_fields=["info"])
-            if resp["messages"]["resultCode"] == "Ok":
+            if resp["messages"]["resultCode"] == "Ok" and resp["transactionResponse"]["responseCode"] == "1":
                 refund.info_data = resp
                 refund.done()
                 return True
@@ -447,7 +447,7 @@ class AuthorizeNetMethod(BasePaymentProvider):
 
             payment.info_data = resp
             payment.save(update_fields=["info"])
-            if resp["messages"]["resultCode"] == "Ok":
+            if resp["messages"]["resultCode"] == "Ok" and resp["transactionResponse"]["responseCode"] == "1":
                 ReferencedAuthorizeNetObject.objects.create(
                     order=payment.order,
                     payment=payment,

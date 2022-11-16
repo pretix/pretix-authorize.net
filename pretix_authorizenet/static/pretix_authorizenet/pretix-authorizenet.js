@@ -11,7 +11,7 @@ var pretixauthorizenet = {
         }
         pretixauthorizenet.continue_button = $('.checkout-button-row').closest("form").find(".checkout-button-row .btn-primary");
         var $cont = $('<div id="authorizenet-button-container">');
-        $cont.hide()
+        $cont.addClass("authorizenet-hidden")
         $cont.append(
             $('<button>')
                 .addClass('AcceptUI')
@@ -26,7 +26,7 @@ var pretixauthorizenet = {
         )
         pretixauthorizenet.continue_button.closest('div').append($cont);
 
-        pretixauthorizenet.continue_button.prop("disabled", true);
+        pretixauthorizenet.continue_button.prop("disabled", true).addClass("authorizenet-hidden");
 
         let sdk_url = $("#authorizenet_sdkurl").text();
 
@@ -70,13 +70,13 @@ var pretixauthorizenet = {
 
     restore: function () {
         // if SDK has not been initialized, there shouldn't be anything to cleanup
-        $('#authorizenet-button-container').hide()
-        pretixauthorizenet.continue_button.prop("disabled", false).show();
+        $('#authorizenet-button-container').addClass("authorizenet-hidden")
+        pretixauthorizenet.continue_button.prop("disabled", false).removeClass("authorizenet-hidden");
     },
 
     renderButton: function (method) {
-        $('#authorizenet-button-container').show()
-        pretixauthorizenet.continue_button.hide();
+        $('#authorizenet-button-container').removeClass("authorizenet-hidden")
+        pretixauthorizenet.continue_button.addClass("authorizenet-hidden");
     },
 
     handleResponse: function (response) {

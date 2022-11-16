@@ -5,6 +5,7 @@
 {% compress js %}
     <script type="text/javascript" src="{% static "pretix_authorizenet/pretix-authorizenet.js" %}"></script>
 {% endcompress %}
+<link rel="stylesheet" href="{% static "pretix_authorizenet/pretix-authorizenet.css" %}">
 {% if environment == "sandbox" %}
     <script type="text/plain" id="authorizenet_sdkurl">https://jstest.authorize.net/v3/AcceptUI.js</script>
 {% else %}

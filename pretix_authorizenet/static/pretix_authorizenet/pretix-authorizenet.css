@@ -1,0 +1,33 @@
+.authorizenet-hidden {
+    display: none !important;
+}
+
+/*
+These styles are also set by Authorize.Net explicitly, but if the authorizenet plugin is combined with a plugin that
+uses nonce-based CSP, the CSP rules will conflict and AuthorizeNet can't set styles
+ */
+
+#AcceptUIContainer {
+    visibility: hidden;
+    opacity: 0;
+    z-index: -1;
+}
+
+#AcceptUIBackground {
+    visibility: hidden;
+    opacity: 0;
+    z-index: -1;
+}
+
+#AcceptUIContainer.show {
+    visibility: visible;
+    z-index: 200;
+    opacity: 1;
+    top: 50%;
+}
+
+#AcceptUIBackground.show {
+    opacity: .7;
+    visibility: visible;
+    z-index: 999998;
+}

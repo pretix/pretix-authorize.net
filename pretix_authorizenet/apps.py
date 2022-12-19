@@ -9,6 +9,7 @@ from . import __version__
 
 
 class PluginApp(PluginConfig):
+    default = True
     name = "pretix_authorizenet"
     verbose_name = "Authorize.Net"
 

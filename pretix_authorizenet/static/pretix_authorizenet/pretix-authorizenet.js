@@ -81,7 +81,7 @@ var pretixauthorizenet = {
 
     handleResponse: function (response) {
         if (response.messages.resultCode === "Error") {
-            for (msg of response.messages.message) {
+            for (var msg of response.messages.message) {
                 alert(
                     msg.code + ": " + msg.text
                 );

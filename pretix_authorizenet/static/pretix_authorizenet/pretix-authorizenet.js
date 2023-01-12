@@ -17,7 +17,7 @@ var pretixauthorizenet = {
                 .addClass('AcceptUI')
                 .addClass('btn btn-primary btn-lg btn-block')
                 .text(gettext('Pay'))
-                .attr('data-billingAddressOptions', '{"show":false, "required":false}')
+                .attr('data-billingAddressOptions', '{"show":true, "required":true}')
                 .attr('data-apiLoginID', $("#authorizenet_login_id").text())
                 .attr('data-clientKey', $("#authorizenet_client_key").text())
                 .attr('data-acceptUIFormBtnTxt', gettext('Pay'))

@@ -457,14 +457,9 @@ class AuthorizeNetMethod(BasePaymentProvider):
                 payment.confirm()
                 return
             else:
-                payment.info_data = resp
-                payment.state = OrderPayment.PAYMENT_STATE_FAILED
-                payment.save()
-                payment.order.log_action(
-                    "pretix.event.order.payment.failed",
-                    {
-                        "local_id": payment.local_id,
-                        "provider": payment.provider,
+                failed = payment.fail(
+                    info=resp,
+                    log_data={
                         "message": ", ".join(
                             [
                                 f"{msg['code']}: {msg['text']}"
@@ -477,22 +472,23 @@ class AuthorizeNetMethod(BasePaymentProvider):
                                 )
                             ]
                         ),
-                    },
+                    }
                 )
-                raise PaymentException(
-                    ", ".join(
-                        [
-                            f"{msg['code']}: {msg['text']}"
-                            for msg in resp["messages"]["message"]
-                        ]
-                        + [
-                            f"{msg['errorCode']}: {msg['errorText']}"
-                            for msg in resp.get("transactionResponse", {}).get(
-                                "errors", []
-                            )
-                        ]
+                if failed:
+                    raise PaymentException(
+                        ", ".join(
+                            [
+                                f"{msg['code']}: {msg['text']}"
+                                for msg in resp["messages"]["message"]
+                            ]
+                            + [
+                                f"{msg['errorCode']}: {msg['errorText']}"
+                                for msg in resp.get("transactionResponse", {}).get(
+                                    "errors", []
+                                )
+                            ]
+                        )
                     )
-                )
         except requests.HTTPError as e:
             logger.exception("Failed to contact Authorize.Net")
             payment.info_data = {

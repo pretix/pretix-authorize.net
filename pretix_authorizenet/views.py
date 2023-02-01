@@ -31,7 +31,7 @@ def webhook(request, *args, **kwargs):
                 order__code=data["payload"]["invoiceNumber"].split("-")[0]
             )
         except ReferencedAuthorizeNetObject.DoesNotExist:
-            return HttpResponse("Unkown payment.", status=404)
+            return HttpResponse("Unknown payment.", status=404)
 
     provider = ro.payment.payment_provider
 

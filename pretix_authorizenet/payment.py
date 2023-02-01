@@ -475,20 +475,27 @@ class AuthorizeNetMethod(BasePaymentProvider):
                     }
                 )
                 if failed:
-                    raise PaymentException(
-                        ", ".join(
-                            [
-                                f"{msg['code']}: {msg['text']}"
-                                for msg in resp["messages"]["message"]
-                            ]
-                            + [
-                                f"{msg['errorCode']}: {msg['errorText']}"
-                                for msg in resp.get("transactionResponse", {}).get(
-                                    "errors", []
-                                )
-                            ]
-                        )
+                    full_msg = ", ".join(
+                        [
+                            f"{msg['errorCode']}: {msg['errorText']}"
+                            for msg in resp.get("transactionResponse", {}).get(
+                                "errors", []
+                            )
+                        ] or [
+                            f"{msg['code']}: {msg['text']}"
+                            for msg in resp["messages"]["message"]
+                        ]
                     )
+                    if "transaction has been declined" in full_msg:
+                        raise PaymentException(
+                            _('Your credit card has been declined. You can retry again or with a different card using '
+                              'the button below. If your payment is not completed, your order will automatically be '
+                              'cancelled again.')
+                        )
+                    else:
+                        raise PaymentException(
+                            full_msg
+                        )
         except requests.HTTPError as e:
             logger.exception("Failed to contact Authorize.Net")
             payment.info_data = {

@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 @require_POST
 @scopes_disabled()
 def webhook(request, *args, **kwargs):
+    # Always return 200 because AuthorizeNet just silently disables the webhook otherwise
     data = json.loads(request.body.decode())
     if data["payload"]["entityName"] != "transaction":
         return HttpResponse("Not interested.", status=200)
@@ -31,7 +32,8 @@ def webhook(request, *args, **kwargs):
                 order__code=data["payload"]["invoiceNumber"].split("-")[0]
             )
         except ReferencedAuthorizeNetObject.DoesNotExist:
-            return HttpResponse("Unknown payment.", status=404)
+            logger.info(f"Received authorize.net webhook for unknown payment: {data}")
+            return HttpResponse("Unknown payment.", status=200)
 
     provider = ro.payment.payment_provider
 
@@ -42,7 +44,8 @@ def webhook(request, *args, **kwargs):
         .upper()
     )
     if received_signature != computed_signature:
-        return HttpResponse("Invalid signature", status=403)
+        logger.info(f"Received authorize.net webhook with invalid signature: {data}")
+        return HttpResponse("Invalid signature", status=200)
 
     ro.order.log_action("pretix_authorizenet.event", data=data)
 

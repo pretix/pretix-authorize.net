@@ -28,21 +28,20 @@ def webhook(request, *args, **kwargs):
         payment = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"]).payment
     except ReferencedAuthorizeNetObject.DoesNotExist:
         # Far from perfect, but necessary for refund processing
-        try:
-            if '-R-' in data["payload"]["invoiceNumber"]:
-                r = OrderRefund.objects.filter(
-                    order__code=data["payload"]["invoiceNumber"].split("-")[0],
-                    local_id=data["payload"]["invoiceNumber"].split("-")[2],
-                ).first()
-                if r:
-                    payment = r.payment
-            if not payment:
-                payment = ReferencedAuthorizeNetObject.objects.filter(
-                    order__code=data["payload"]["invoiceNumber"].split("-")[0]
-                ).first().payment
-            if not payment:
-                logger.info(f"Received authorize.net webhook for unknown payment: {data}")
-                return HttpResponse("Unknown payment.", status=200)
+        if '-R-' in data["payload"]["invoiceNumber"]:
+            r = OrderRefund.objects.filter(
+                order__code=data["payload"]["invoiceNumber"].split("-")[0],
+                local_id=data["payload"]["invoiceNumber"].split("-")[2],
+            ).first()
+            if r:
+                payment = r.payment
+        if not payment:
+            payment = ReferencedAuthorizeNetObject.objects.filter(
+                order__code=data["payload"]["invoiceNumber"].split("-")[0]
+            ).first().payment
+        if not payment:
+            logger.info(f"Received authorize.net webhook for unknown payment: {data}")
+            return HttpResponse("Unknown payment.", status=200)
 
     provider = payment.payment_provider
 

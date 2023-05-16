@@ -7,7 +7,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from django_scopes import scopes_disabled
-from pretix.base.models import OrderPayment
+from pretix.base.models import OrderPayment, OrderRefund
 
 from .models import ReferencedAuthorizeNetObject
 
@@ -23,19 +23,28 @@ def webhook(request, *args, **kwargs):
     if data["payload"]["entityName"] != "transaction":
         return HttpResponse("Not interested.", status=200)
 
+    payment = None
     try:
-        ro = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"])
+        payment = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"]).payment
     except ReferencedAuthorizeNetObject.DoesNotExist:
         # Far from perfect, but necessary for refund processing
         try:
-            ro = ReferencedAuthorizeNetObject.objects.get(
-                order__code=data["payload"]["invoiceNumber"].split("-")[0]
-            )
-        except ReferencedAuthorizeNetObject.DoesNotExist:
-            logger.info(f"Received authorize.net webhook for unknown payment: {data}")
-            return HttpResponse("Unknown payment.", status=200)
+            if '-R-' in data["payload"]["invoiceNumber"]:
+                r = OrderRefund.objects.filter(
+                    order__code=data["payload"]["invoiceNumber"].split("-")[0],
+                    local_id=data["payload"]["invoiceNumber"].split("-")[2],
+                ).first()
+                if r:
+                    payment = r.payment
+            if not payment:
+                payment = ReferencedAuthorizeNetObject.objects.filter(
+                    order__code=data["payload"]["invoiceNumber"].split("-")[0]
+                ).first().payment
+            if not payment:
+                logger.info(f"Received authorize.net webhook for unknown payment: {data}")
+                return HttpResponse("Unknown payment.", status=200)
 
-    provider = ro.payment.payment_provider
+    provider = payment.payment_provider
 
     received_signature = request.headers["X-Anet-Signature"].split("=")[-1].upper()
     computed_signature = (
@@ -47,22 +56,22 @@ def webhook(request, *args, **kwargs):
         logger.info(f"Received authorize.net webhook with invalid signature: {data}")
         return HttpResponse("Invalid signature", status=200)
 
-    ro.order.log_action("pretix_authorizenet.event", data=data)
+    payment.order.log_action("pretix_authorizenet.event", data=data)
 
     if data["eventType"] == "net.authorize.payment.void.created":
-        ro.payment.create_external_refund(
-            ro.payment.amount, info=json.dumps(data["payload"])
+        payment.create_external_refund(
+            payment.amount, info=json.dumps(data["payload"])
         )
     elif data["eventType"] == "net.authorize.payment.refund.created":
-        ro.payment.create_external_refund(
+        payment.create_external_refund(
             Decimal(data["payload"]["authAmount"]), info=json.dumps(data["payload"])
         )
     elif data[
         "eventType"
-    ] == "net.authorize.payment.fraud.declined" and ro.payment.state not in (
+    ] == "net.authorize.payment.fraud.declined" and payment.state not in (
         OrderPayment.PAYMENT_STATE_CONFIRMED,
         OrderPayment.PAYMENT_STATE_REFUNDED,
     ):
-        ro.payment.fail()
+        payment.fail()
 
     return HttpResponse("OK", status=200)

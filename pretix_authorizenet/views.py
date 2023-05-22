@@ -36,9 +36,11 @@ def webhook(request, *args, **kwargs):
             if r:
                 payment = r.payment
         if not payment:
-            payment = ReferencedAuthorizeNetObject.objects.filter(
+            rano = ReferencedAuthorizeNetObject.objects.filter(
                 order__code=data["payload"]["invoiceNumber"].split("-")[0]
-            ).first().payment
+            ).first()
+            if rano:
+                payment = rano.payment
         if not payment:
             logger.info(f"Received authorize.net webhook for unknown payment: {data}")
             return HttpResponse("Unknown payment.", status=200)

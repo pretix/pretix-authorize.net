@@ -28,6 +28,8 @@ def webhook(request, *args, **kwargs):
         payment = ReferencedAuthorizeNetObject.objects.get(reference=data["payload"]["id"]).payment
     except ReferencedAuthorizeNetObject.DoesNotExist:
         # Far from perfect, but necessary for refund processing
+        if "invoiceNumber" not in data["payload"]:
+            return HttpResponse("Unknown payment.", status=200)
         if '-R-' in data["payload"]["invoiceNumber"]:
             r = OrderRefund.objects.filter(
                 order__code=data["payload"]["invoiceNumber"].split("-")[0],

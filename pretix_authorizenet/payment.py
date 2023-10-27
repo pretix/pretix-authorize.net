@@ -445,8 +445,7 @@ class AuthorizeNetMethod(BasePaymentProvider):
             r.raise_for_status()
             resp = json.loads(r.content.decode("utf-8-sig"))
 
-            payment.info_data = resp
-            payment.save(update_fields=["info"])
+            payment.order.log_action("pretix_authorizenet.result", data=resp)
             if resp["messages"]["resultCode"] == "Ok" and resp["transactionResponse"]["responseCode"] == "1":
                 ReferencedAuthorizeNetObject.objects.create(
                     order=payment.order,

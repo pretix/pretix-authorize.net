@@ -78,10 +78,14 @@ def signal_process_response(
 
 @receiver(signal=logentry_display, dispatch_uid="authorizenet_logentry_display")
 def pretixcontrol_logentry_display(sender, logentry, **kwargs):
-    if logentry.action_type != "pretix_authorizenet.event":
+    if logentry.action_type not in ("pretix_authorizenet.event", "pretix_authorizenet.result"):
         return
 
-    data = json.loads(logentry.data)
-    event_type = data.get("eventType", "").replace("net.authorize.", "")
+    if logentry.action_type == "pretix_authorizenet.event":
+        data = json.loads(logentry.data)
+        event_type = data.get("eventType", "").replace("net.authorize.", "")
 
-    return _("Authorize.Net reported an event: {}").format(event_type)
+        return _("Authorize.Net reported an event: {}").format(event_type)
+    elif logentry.action_type == "pretix_authorizenet.result":
+        return _("Authorize.Net result received.")
+

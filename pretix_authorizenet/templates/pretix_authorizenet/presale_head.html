@@ -2,7 +2,7 @@
 {% load compress %}
 {% load i18n %}
 
-{% compress js %}
+{% compress js file authorize %}
     <script type="text/javascript" src="{% static "pretix_authorizenet/pretix-authorizenet.js" %}"></script>
 {% endcompress %}
 <link rel="stylesheet" href="{% static "pretix_authorizenet/pretix-authorizenet.css" %}">

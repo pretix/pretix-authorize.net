@@ -34,6 +34,7 @@ def webhook(request, *args, **kwargs):
             r = OrderRefund.objects.filter(
                 order__code=data["payload"]["invoiceNumber"].split("-")[0],
                 local_id=data["payload"]["invoiceNumber"].split("-")[2],
+                provider__startswith="authorizenet_",
             ).first()
             if r:
                 payment = r.payment
